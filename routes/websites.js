@@ -5,10 +5,11 @@ const path = require("path");
 const urlToImage = require('url-to-image');
 const jimp = require('jimp');
 
-let dbClient = null;
+let dbSitesClient = null;
+let dbCategoriesClient = {};
 
 router.get("/list", (req, res) => {
-  dbClient.find({}).toArray((err, data) => {
+  dbSitesClient.find({}).toArray((err, data) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -22,7 +23,7 @@ router.get("/list", (req, res) => {
 });
 
 router.get("/categories", (req, res) => {
-  dbClient.find({}).toArray((err, data) => {
+  dbSitesClient.find({}).toArray((err, data) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -64,28 +65,55 @@ router.post("/create", async (req, res) => {
     await rawImage.resize(450, jimp.AUTO).crop(0, 0, 450, 300).quality(80).writeAsync(pathToSaveOptimized);
 
     // Creamos el documento
-    const insertion = await dbClient
-      .insertOne({
+    getCategories().then(categories => {
+      console.log("Categories", categories);
+      if(categories.indexOf(categoryWeb) < 0)
+        dbCategoriesClient.insertOne({name: categoryWeb})
+        .then(insertion => Promise.resolve(insertion.insertedId));
+
+      return;
+      // Id insercion insertion.insertedId;
+
+      dbSitesClient.insertOne({
         url: urlWeb,
         title: titleScrap,
         description: descriptionScrap,
         image: imageUrl,
         category: categoryWeb
+      }).then(insertion => {
+        res.status(201).json({
+          url: urlWeb,
+          title: titleScrap,
+          description: descriptionScrap,
+          image: imageUrl
+        });
       })
-      .catch(err => res.status(500).json({ error: err.message }));
+    })
+    .catch(err => res.status(500).json({ error: err.message }));
 
-    return res.status(201).json({
-      url: urlWeb,
-      title: titleScrap,
-      description: descriptionScrap,
-      image: imageUrl
-    });
   });
-
 
 });
 
+//
+// Helper functions
+//
+function getCategories(){
+  return new Promise((resolve, reject) => {
+    dbCategoriesClient.find({}).toArray((err, data) => {
+      if (err)
+        reject(err);
+      else
+        resolve(data);
+      });
+    }
+  );
+}
+
 module.exports = {
   router,
-  setMongoClient: client => (dbClient = client.collection("sites"))
+  setMongoClient: client => {
+    dbSitesClient = client.collection("sites");
+    dbCategoriesClient = client.collection("categories");
+  }
 };
