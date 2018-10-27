@@ -1,5 +1,4 @@
 const express = require("express");
-const fs = require("fs");
 const router = express.Router();
 const scrap = require("scrap");
 const path = require("path");
@@ -13,15 +12,31 @@ router.get("/list", (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
+    const category = req.query.category;
+    if(!category || category === "Todas")
+      return res.status(200).json({ list: data });
+    return res.status(200).json({ 
+      list: data.filter(web => web.category === category)
+    });
+  });
+});
 
-    return res.status(200).json({ list: data });
+router.get("/categories", (req, res) => {
+  dbClient.find({}).toArray((err, data) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    let categories = ["Todas"];
+    data.forEach(web => categories.push(web.category));
+
+    return res.status(200).json({categories});
   });
 });
 
 router.post("/create", async (req, res) => {
   // Recojo los params de la petición (cuerpo)
   const urlWeb = req.body.url;
-  const titleWeb = req.body.title;
+  const categoryWeb = req.body.category || "Todas";
 
   const urlScrapped = scrap(urlWeb, async (err, $, code, html) => {
     if (err) {
@@ -54,23 +69,16 @@ router.post("/create", async (req, res) => {
         url: urlWeb,
         title: titleScrap,
         description: descriptionScrap,
-        image: imageUrl
+        image: imageUrl,
+        category: categoryWeb
       })
       .catch(err => res.status(500).json({ error: err.message }));
 
-    // Eliminamos el archivo raw que tiene un peso excesivo y no usaremos nunca
-    fs.unlink(pathToSave, err => {
-      if (err) {
-        return res.status(500).send();
-      }
-
-      // Una vez eliminado, devolvemos respuesta con datos
-      return res.status(201).json({
-        url: urlWeb,
-        title: titleScrap,
-        description: descriptionScrap,
-        image: imageUrl
-      });
+    return res.status(201).json({
+      url: urlWeb,
+      title: titleScrap,
+      description: descriptionScrap,
+      image: imageUrl
     });
   });
 
