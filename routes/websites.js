@@ -1,4 +1,5 @@
 const express = require("express");
+const fs = require("fs");
 const router = express.Router();
 const scrap = require("scrap");
 const path = require("path");
@@ -57,11 +58,19 @@ router.post("/create", async (req, res) => {
       })
       .catch(err => res.status(500).json({ error: err.message }));
 
-    return res.status(201).json({
-      url: urlWeb,
-      title: titleScrap,
-      description: descriptionScrap,
-      image: imageUrl
+    // Eliminamos el archivo raw que tiene un peso excesivo y no usaremos nunca
+    fs.unlink(pathToSave, err => {
+      if (err) {
+        return res.status(500).send();
+      }
+
+      // Una vez eliminado, devolvemos respuesta con datos
+      return res.status(201).json({
+        url: urlWeb,
+        title: titleScrap,
+        description: descriptionScrap,
+        image: imageUrl
+      });
     });
   });
 
